@@ -27,7 +27,7 @@ def sample_words_from_corpora(corpora: List[Corpus], search_terms : List[SearchT
 def sample_data(excel_path : str, sheet_name : str, filepaths : List | str, output_folder : str, corpus_class : Corpus):
     df = pd.read_excel(excel_path, engine="odf", sheet_name = sheet_name)
     search_terms = extract_search_terms_from_wordlist(df.lemma)
-    sample_words_from_corpora([corpus_class(c) for c in filepaths[:1]], search_terms, output_folder=output_folder)
+    sample_words_from_corpora([corpus_class(c) for c in filepaths], search_terms, output_folder=output_folder)
 
 
 
