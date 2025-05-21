@@ -20,7 +20,7 @@ def extract_search_terms_from_wordlist(wordlist: List[str]):
 def sample_words_from_corpora(corpora: List[Corpus], search_terms : List[SearchTerm], output_folder :str = ''):
     for corpus in corpora:
         usage_dictionary = corpus.search(search_terms)
-        filename_wo_extension = Path(corpus.name).stem
+        filename_wo_extension = Path(corpus.name).stem.split('.')[0]
         usage_dictionary.save(output_folder + filename_wo_extension)
 
 
@@ -38,7 +38,6 @@ def sample_data(
     logging.info(pformat(list(wordlist)))
     search_terms = extract_search_terms_from_wordlist(wordlist)
     sample_words_from_corpora(corpora, search_terms, output_folder=output_folder)
-
 
 
 if __name__ == '__main__':
@@ -80,9 +79,9 @@ if __name__ == '__main__':
     sample_data(
         "data/words2sample/Words2SampleOverview.ods",
         "Electricity (Mats)",
-        filepaths = [
-            'data/corpora/kubhist2/kubhist2-falkopingstidning-1880.xml.bz2',
-            'data/corpora/kubhist2/kubhist2-falkopingstidning-1890.xml.bz2'
+        corpora = [
+            SprakBankenCorpus('data/corpora/kubhist2/kubhist2-falkopingstidning-1880.xml.bz2'),
+            SprakBankenCorpus('data/corpora/kubhist2/kubhist2-falkopingstidning-1890.xml.bz2')
 
         ],
         output_folder = 'data/outputs/',
