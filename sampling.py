@@ -22,14 +22,18 @@ def extract_corpora_from_filepaths(filepaths: List[str]):
         corpora.append(SprakBankenCorpus(fp))
     return corpora
 
-
 def sample_data(filepaths: List[str], wordlist : List[str], output_folder : str = ''):
     corpora = extract_corpora_from_filepaths(filepaths)
     search_terms = extract_search_terms_from_wordlist(wordlist)
     for corpus in corpora:
-        usage_dictionary = corpus.search(search_terms)
         filename_wo_extension = Path(corpus.name).stem.split('.')[0]
-        usage_dictionary.save(output_folder + filename_wo_extension)
+        output_fn = output_folder + filename_wo_extension
+        for st in search_terms:
+            if Path(f'{output_fn}/{st.term}_usages.jsonl').is_file():
+                logging.info(f"{output_fn}/{st.term}_usages.jsonl already exists. Skipping search for {st.term}.")
+                continue
+        usage_dictionary = corpus.search(search_terms)
+        usage_dictionary.save(output_fn)
 
 
 def sample_data_from_excel(
