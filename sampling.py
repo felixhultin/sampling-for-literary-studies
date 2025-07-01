@@ -27,16 +27,17 @@ def sample_data(filepaths: List[str], wordlist : List[str], output_folder : str 
     search_terms = extract_search_terms_from_wordlist(wordlist)
     for corpus in corpora:
         filename_wo_extension = Path(corpus.name).stem.split('.')[0]
-        output_fn = output_folder + filename_wo_extension
+        output_folder_path = output_folder + filename_wo_extension
         filtered_search_terms = []
         for st in search_terms:
-            if Path(f'{output_fn}/{st.term}_usages.jsonl').is_file():
-                logging.info(f"{output_fn}/{st.term}_usages.jsonl already exists. Skipping search for {st.term}.")
-                continue
-            filtered_search_terms.append(st)
+            if Path(f'{output_folder_path}/{st.term}_usages.jsonl').is_file():
+                logging.info(f"{output_folder_path}/{st.term}_usages.jsonl already exists. Skipping search for {st.term}.")
+            else:
+                filtered_search_terms.append(st)
         if filtered_search_terms:
+            logging.info(f"Scanning {corpus.name}")
             usage_dictionary = corpus.search(filtered_search_terms)
-            usage_dictionary.save(output_fn)
+            usage_dictionary.save(output_folder_path)
 
 
 def sample_data_from_excel(
