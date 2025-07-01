@@ -16,15 +16,23 @@ def extract_search_terms_from_wordlist(wordlist: List[str]):
         search_terms.append(st)
     return search_terms
 
+def extract_corpora_from_filepaths(filepaths: List[str]):
+    corpora = []
+    for fp in filepaths:
+        corpora.append(SprakBankenCorpus(fp))
+    return corpora
 
-def sample_words_from_corpora(corpora: List[Corpus], search_terms : List[SearchTerm], output_folder :str = ''):
+
+def sample_data(filepaths: List[str], wordlist : List[str], output_folder : str = ''):
+    corpora = extract_corpora_from_filepaths(filepaths)
+    search_terms = extract_search_terms_from_wordlist(wordlist)
     for corpus in corpora:
         usage_dictionary = corpus.search(search_terms)
         filename_wo_extension = Path(corpus.name).stem.split('.')[0]
         usage_dictionary.save(output_folder + filename_wo_extension)
 
 
-def sample_data(
+def sample_data_from_excel(
         excel_path : str,
         sheet_name : str,
         corpora : List[Corpus],
@@ -36,12 +44,11 @@ def sample_data(
     wordlist = df[wordfeature_col]
     logging.info(f"Sampling the following words:\n")
     logging.info(pformat(list(wordlist)))
-    search_terms = extract_search_terms_from_wordlist(wordlist)
-    sample_words_from_corpora(corpora, search_terms, output_folder=output_folder)
+    sample_data(corpora, wordlist, output_folder=output_folder)
 
 
 if __name__ == '__main__':
-    sample_data(
+    sample_data_from_excel(
         "data/words2sample/Words2SampleOverview.ods",
         "Political words (Miriam)",
         corpora = [
@@ -66,7 +73,7 @@ if __name__ == '__main__':
         output_folder = 'data/outputs/',
         wordfeature_col = 'lemma'
     )
-    sample_data(
+    sample_data_from_excel(
         "data/words2sample/Words2SampleOverview.ods",
         "Gender studies (Mia)",
         corpora = [
@@ -76,7 +83,7 @@ if __name__ == '__main__':
         wordfeature_col = 'Swedish – lemmas'
     )
 
-    sample_data(
+    sample_data_from_excel(
         "data/words2sample/Words2SampleOverview.ods",
         "Electricity (Mats)",
         corpora = [
