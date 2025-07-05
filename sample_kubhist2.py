@@ -1,3 +1,4 @@
+import argparse
 import bz2
 import jsonlines
 import datetime
@@ -7,12 +8,9 @@ import requests
 import lxml.etree as ET
 
 from pathlib import Path
-from typing import List
 from tqdm import tqdm
 
 logging.basicConfig(level='INFO')
-
-
 
 SBX_METADATA_API_ENDPOINT = "https://ws.spraakbanken.gu.se/ws/metadata/v3/"
 
@@ -53,7 +51,6 @@ def _fetch_metadata(api_endpoint : str, resource_name: str):
 
 def get_nof_sentences_from_resource(resource_name: str):
     metadata = _fetch_metadata(SBX_METADATA_API_ENDPOINT, resource_name)
-    print(metadata)
     return metadata['size']['sentences']
 
 def timeperiod_in_range(start, end, x, format = "%Y-%m-%d"):
@@ -66,11 +63,12 @@ def timeperiod_in_range(start, end, x, format = "%Y-%m-%d"):
         return start_timestamp <= x_timestamp or x <= end_timestamp
 
 
-def extract_sentences_with_lemma(xml_file, output_file, targets : set[tuple], start_date: str, end_date: str):
+def extract_target_usages(xml_file, targets : set[tuple], start_date: str, end_date: str):
     if type(targets) != set:
         raise ValueError("targets must be a set for processing purposes")
     resource_name = Path(Path(xml_file).stem).stem
     total_sentences = get_nof_sentences_from_resource(resource_name)
+    logging.info(f"Start processing: {xml_file}")
     with open_file(xml_file) as f_in, jsonlines.open(f'{resource_name}_target_usages.jsonl', mode='w') as writer, tqdm(total=total_sentences, desc="Processing") as pbar:
         context = ET.iterparse(f_in, events=('start', 'end'))  
         for event, elem in context:
@@ -95,18 +93,20 @@ def extract_sentences_with_lemma(xml_file, output_file, targets : set[tuple], st
                     sentence += text + " "
                         
             elif event == 'end':
-                if elem.tag == 'sentence' and process_current_text:
-                    # Remove trailing space
-                    sentence = sentence[:-1]
-                    for off, match in zip(offsets, matches):
-                        start, end = off
-                        writer.write({
-                            'id': elem.get('id'),
-                            'start': start,
-                            'end': end,
-                            'target': match,
-                            'sentence': sentence
-                        })
+                if elem.tag == 'sentence':
+                    if process_current_text:
+                        # Remove trailing space
+                        sentence = sentence[:-1]
+                        for off, match in zip(offsets, matches):
+                            start, end = off
+                            writer.write({
+                                'id': elem.get('id'),
+                                'start': start,
+                                'end': end,
+                                'target': match,
+                                'sentence': sentence,
+                                'date': text_date
+                            })
                     pbar.update(1)
 
                 # Clear memory
@@ -119,17 +119,30 @@ def extract_sentences_with_lemma(xml_file, output_file, targets : set[tuple], st
 
 
 if __name__ == '__main__':
-    #paths = ['data/corpora/kubhist2/kubhist2-falkopingstidning-1880.xml.bz2', 'data/corpora/kubhist2/kubhist2-falkopingstidning-1890.xml.bz2']
-    #for p in paths:
-    #    f = open_file(p)
-    extract_sentences_with_lemma(
-        #'data/corpora/svt/svt-2009.xml.bz2',
-        'data/corpora/kubhist2/kubhist2-fahluweckoblad-1810.xml.bz2',
-        #'data/corpora/kubhist2/kubhist2-carlscronaswekoblad-1780.xml.bz2', 
-        'output.jsonl', 
-        targets={
-            ('till', 'PP')
-        }, 
-        start_date='1810-01-01', 
-        end_date='1820-12-31'
-    )
+    parser = argparse.ArgumentParser(
+                    prog='Samples words from corpora',
+                    description='Samples sentences given words and corpora')
+    parser.add_argument('-w', '--word', nargs='+')
+    parser.add_argument('-c', '--corpora', nargs='+')
+    parser.add_argument('-o', '--output-folder', default="")
+    parser.add_argument('-s', '--start')
+    parser.add_argument('-e', '--end')
+
+    args = parser.parse_args()
+    corpora = args.corpora
+    output_folder = args.output_folder
+    targets = []
+    for w in args.word:
+        try:
+            w, pos = w.split("_")
+        except:
+            raise ValueError("-w or --word must of format <word>_<part-of-speech>")
+
+    targets = {tuple(w.split("_")) for w in args.word}
+    for c in corpora:
+        extract_target_usages(
+            c,
+            targets=targets,
+            start_date=args.start,
+            end_date=args.end
+        )
