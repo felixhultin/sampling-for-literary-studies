@@ -19,4 +19,5 @@ python sample_kubhist2.py \
     -w ${target_words[@]} \
     -c ${kubhist[@]} \
     -s "1918-01-01" \
-    -e "1922-12-31"
+    -e "1922-12-31" \
+    -o "t9_kubhist"
