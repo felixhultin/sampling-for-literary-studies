@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 target_words=($(csvcut mtp_target_words.tsv -t -c "words,PoS" | tr "," "_" | tail -n +2))
 echo "Uses following target words: ${target_words[@]}"
 # Sampling for t1, phase 1
