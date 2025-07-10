@@ -2,46 +2,25 @@ import pandas as pd
 import glob
 import os
 
-def read_output_dir_into_df(output_dir: str):
-    jsonl_files = glob.glob(os.path.join(output_dir, '*.jsonl'))
-
-    df_list = []
-    for file_path in jsonl_files:
-        df = pd.read_json(file_path, lines=True)
-        
-        basename = os.path.basename(file_path)
-        resource_name = basename.split('_')[0]
-        splitted = resource_name.split('-')
-        newspaper, decade = "-".join(splitted[1:-1]), splitted[-1]
-        df['newspaper'] = newspaper
-        df['decade'] = decade
-        df_list.append(df)
-    
-    return pd.concat(df_list, ignore_index=True)
-
-def read_and_filter_jsonfiles(jsonfiles: list[str]):
-    raise NotImplementedError
-
-def read_frequencies_from_files(jsonl_files):
+def read_frequencies_from_statistic_files(statistic_files : list[str]):
+    mtp_targets_file = pd.read_csv('mtp_target_words.tsv', sep='\t')
+    mtp_targets = tuple(mtp_targets_file.words + '_' + mtp_targets_file.PoS)
     rows = []
-    for file_path in jsonl_files:
-        basename = os.path.basename(file_path)
-        basename_splitted = basename.split('_')
-        resource_name = basename_splitted[0]
-        rest_rejoined = "_".join(basename_splitted[1:])
-        end_filename = 'target_usages.jsonl'
-        assert file_path.endswith(end_filename)
-        word_pos = rest_rejoined[:-(len(end_filename)+1)]
-        splitted = resource_name.split('-')
-        newspaper, decade = "-".join(splitted[1:-1]), splitted[-1]
-        with open(file_path) as f:
-            num_lines = sum(1 for _ in f)
-        rows.append({
-            'newspaper': newspaper,
-            'decade': decade,
-            'target': word_pos,
-            'count': num_lines
-        })
+    for f in statistic_files:
+        print(f"Processing {f}")
+        df = pd.read_csv(f, sep='\t')
+        df['target'] = df['lemma'] + '_' + df['POS'].str.split('.').str[0]
+        df = df[df['target'].isin(mtp_targets)]
+        df = df.groupby('target').sum('count')
+        target_count = df['count'].to_dict()
+        for t in mtp_targets:
+            row = {
+                'file': f,
+                'word': t.split('_')[0],
+                'pos': t.split('_')[1],
+                'count': target_count.get(t, 0)
+            }
+            rows.append(row)
     return pd.DataFrame.from_records(rows)
 
 
@@ -77,7 +56,8 @@ SVT_TIMEPERIODS = {
     2023: 't9'
 }
 
-def timeperiod_frequencies_from_svt(stats_file: str | pd.DataFrame):
+def timeperiod_frequencies_from_svt(stats_file: str | pd.DataFrame, 
+                                    mtp_target_words: pd.DataFrame ):
     if type(stats_file) == str:
         df = pd.read_csv(stats_file)
     else:
@@ -86,14 +66,13 @@ def timeperiod_frequencies_from_svt(stats_file: str | pd.DataFrame):
     df['t'] = df.year.apply(lambda y: SVT_TIMEPERIODS[y])
     df = df[['t', 'word', 'count']].groupby(['t', 'word']).sum('count').reset_index()
     df = df.pivot(index='word', columns='t', values='count')
-    mtp_target_words = pd.read_csv('mtp_target_words.tsv', sep='\t')
+    mtp_target_words['words'] = mtp_target_words['words'].replace('backa_upp', 'backa upp')
     right_order = list(mtp_target_words.words)
-    # Fix "backa upp"
-    #right_order = ["backa upp_VB" if w == "backa_upp_VB" else w for w in right_order]
     df = df.loc[right_order]
     return df
 
-def timeperiod_frequencies_from_kubhist(stats_file: str | pd.DataFrame):
+def timeperiod_frequencies_from_kubhist(stats_file: str | pd.DataFrame, 
+                                        mtp_target_words: pd.DataFrame):
     if type(stats_file) == str:
         df = pd.read_csv(stats_file)
     else:
@@ -101,50 +80,58 @@ def timeperiod_frequencies_from_kubhist(stats_file: str | pd.DataFrame):
     df['t'] = df.file.apply(lambda s: int(s[-12:-8]))
     df = df[['t', 'word', 'count']].groupby(['t', 'word']).sum('count').reset_index()
     df = df.pivot(index='word', columns='t', values='count')
-    mtp_target_words = pd.read_csv('mtp_target_words.tsv', sep='\t')
+    mtp_target_words['words'] = mtp_target_words['words'].replace('backa_upp', 'backa upp')
     right_order = list(mtp_target_words.words)
-    # Fix "backa upp"
-    return df
-    right_order = ["backa upp_VB" if w == "backa_upp_VB" else w for w in right_order]
-    df = df.loc[right_order]    
+    df = df.loc[right_order]
     return df
 
-
-def read_frequencies_from_statistic_files(statistic_files : list[str]):
-    mtp_targets_file = pd.read_csv('mtp_target_words.tsv', sep='\t')
-    mtp_targets = tuple(mtp_targets_file.words + '_' + mtp_targets_file.PoS)
-    rows = []
-    for f in statistic_files:
-        print(f"Processing {f}")
-        df = pd.read_csv(f, sep='\t')
-        df['target'] = df['lemma'] + '_' + df['POS'].str.split('.').str[0]
-        df = df[df['target'].isin(mtp_targets)]
-        df = df.groupby('target').sum('count')
-        target_count = df['count'].to_dict()
-        for t in mtp_targets:
-            row = {
-                'file': f,
-                'word': t.split('_')[0],
-                'pos': t.split('_')[1],
-                'count': target_count.get(t, 0)
-            }
-            rows.append(row)
-    return pd.DataFrame.from_records(rows)
+def choose_samples_by_frequency(df : pd.DataFrame, frequency = 20):
+    to_keep = []
+    for index, row in df.iterrows():
+        keep = True
+        if 'SVT'in row.corpora:
+            for tp in ('t' + str(n) for n in range(1,10)):
+                if row[tp] < frequency:
+                    keep = False
+        if 'Kubhist' in row.corpora:
+            for tp in (1880, 1890, 1900, 1910, 1920):
+                if row[tp] < frequency:
+                    keep = False
+        if keep:    
+            to_keep.append({'word': index} | row.to_dict())
+    return pd.DataFrame.from_records(to_keep).drop(columns='t0')
 
 if __name__ == '__main__':
-    #df = timeperiod_frequencies_from_svt('word_freqs.txt')
+    mtp_target_words = pd.read_csv('mtp_target_words.tsv', sep='\t')
     stats_kubhist2_1880 = glob.glob(os.path.join('data/corpora/kubhist2', 'stats_kubhist2*1880*.csv.zip*'))
     stats_kubhist2_1890 = glob.glob(os.path.join('data/corpora/kubhist2', 'stats_kubhist2*1890*.csv.zip*'))
     stats_kubhist2_1900 = glob.glob(os.path.join('data/corpora/kubhist2', 'stats_kubhist2*1900*.csv.zip*'))
     stats_kubhist_1910 = glob.glob(os.path.join('data/corpora/kubhist', 'stats_kubhist*1910*.csv.zip*'))
     stats_kubhist_1920 = glob.glob(os.path.join('data/corpora/kubhist', 'stats_kubhist*1920*.csv.zip*'))
-    # df = read_frequencies_from_statistic_files(
-    #     stats_kubhist2_1880 + \
-    #     stats_kubhist2_1890 + \
-    #     stats_kubhist2_1900 + \
-    #     stats_kubhist_1910 + \
-    #     stats_kubhist_1920
-    # )
+    kubhist_out = 'wordfreqs_kubhist.csv'
+    df_kubhist = read_frequencies_from_statistic_files(
+        stats_kubhist2_1880 + \
+        stats_kubhist2_1890 + \
+        stats_kubhist2_1900 + \
+        stats_kubhist_1910 + \
+        stats_kubhist_1920
+    ).to_csv(kubhist_out)
+    df_kubhist_overview = timeperiod_frequencies_from_kubhist(kubhist_out, mtp_target_words)
+    df_kubhist_overview.to_csv('wordfreqs_kubhist-overview.csv')
+    svt_out = 'wordfreqs_svt.csv'
+    stats_svt = glob.glob(os.path.join('data/corpora/svt', 'stats_*.csv'))
+    df_svt = read_frequencies_from_statistic_files(stats_svt).to_csv(svt_out)
+    df_svt_overview = timeperiod_frequencies_from_svt(svt_out, mtp_target_words)
+    df_svt_overview.to_csv('wordfreqs_svt-overview.csv')
+    df_all_overview = df_kubhist_overview.join(df_svt_overview)
+    df_all_overview.to_csv('wordfreqs_all-overview.csv')
+
+    # Words to sample from based on frequencies
+    df_all_overview = df_all_overview.drop(index='AI')
+    mtp_target_words = mtp_target_words.set_index('words').drop(index='AI')
+    df_all_overview['corpora'] = mtp_target_words['dataset/s']
+
+
     # df.to_csv('wordfreqs_kubhist.csv')
     # df = df[['decade', 'target', 'count']].groupby(['decade', 'target']).sum('count').reset_index()
     # t1_kubhist = glob.glob(os.path.join('t1_kubhist', '*.jsonl'))
