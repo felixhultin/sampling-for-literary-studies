@@ -51,14 +51,13 @@ def extract_target_usages(xml_file, targets : set[tuple], start_date: str, end_d
     if type(targets) != set:
         raise ValueError("targets must be a set for processing purposes")
     resource_name = Path(Path(xml_file).stem).stem
-    total_sentences = get_nof_sentences_from_resource(resource_name)
     logging.info(f"Start processing: {xml_file}")
     if args.output_folder:
         output_folder = args.output_folder
     else:
         output_folder = 'output'
     Path(output_folder).mkdir(parents=True, exist_ok=True)
-    with open_file(xml_file) as f_in, tqdm(total=total_sentences, desc="Processing") as pbar:
+    with open_file(xml_file) as f_in:
         target_json_writer = {
             (t,pos): jsonlines.open(f'{output_folder}/{resource_name}_{t}_{pos}_target_usages.jsonl', mode='w') for t, pos in targets
         }
@@ -67,6 +66,7 @@ def extract_target_usages(xml_file, targets : set[tuple], start_date: str, end_d
             if event == 'start':
                 if elem.tag == 'text':
                     text_date = elem.get('date')
+                    text_date = text_date.split('T')[0] # For SVT corpus
                     process_current_text = timeperiod_in_range(start_date, end_date, text_date)
                 if elem.tag == 'sentence' and process_current_text:
                     offsets, matches, pos_tags = [], [], []
@@ -84,7 +84,6 @@ def extract_target_usages(xml_file, targets : set[tuple], start_date: str, end_d
                             matches.append(lemma)
                             pos_tags.append(pos)
                     sentence += text + " "
-                        
             elif event == 'end':
                 if elem.tag == 'sentence':
                     if process_current_text:
@@ -101,8 +100,6 @@ def extract_target_usages(xml_file, targets : set[tuple], start_date: str, end_d
                                 'sentence': sentence,
                                 'date': text_date
                             })
-                    pbar.update(1)
-
                 # Clear memory
                 elem.clear()
                 parent = elem.getparent()
