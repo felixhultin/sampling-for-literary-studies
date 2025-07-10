@@ -5,7 +5,6 @@ echo "Uses following target words: ${target_words[@]}"
 kubhist2_1880=($(ls -d data/corpora/kubhist2/*1880*.xml.bz2))
 for c in "${kubhist2_1880[@]}"
 do
-    echo "Starting to process ${c}"
     python sample_kubhist2.py \
         -w ${target_words[@]} \
         -c "${c}" \
@@ -18,7 +17,6 @@ done
 kubhist=($(ls -d data/corpora/kubhist/*)) # no need to filter, only t9 in folder
 for c in "${kubhist[@]}"
 do
-    echo "Starting to process ${c}"
     python sample_kubhist2.py \
         -w ${target_words[@]} \
         -c "${c}" \
