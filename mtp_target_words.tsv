@@ -10,9 +10,10 @@ förälder	NN	Kubhist, SVT, parliamentary data	1880-2024	from mother to more bot
 check	NN	Kubhist, SVT	1880-2024	from a bank check to controll, a check (checka av)	
 klimat	NN	Kubhist, SVT	1880-2024	from general/different weather (in different places) to "the climate"	marknad/en
 marknad	NN	Kubhist, SVT, parliamentary data	1800--2024	from a physical place to abstract markets, to agents 	
-AI	NN	SVT	entire	from unrealistic fiction to reality	
+AI	PM	SVT	entire	from unrealistic fiction to reality	has no lemma in Språkbanken
+AI	NN	SVT	entire	from unrealistic fiction to reality	has no lemma in Språkbanken
 gäng	NN	Kubhist, SVT	1880-2024	from a group to a criminal gang. 	
-export	NN	SVT	entire	from phyical export to exporting data	
+exportera	VB	SVT	entire	from phyical export to exporting data	
 sändning	NN	Kubhist, SVT	1880-2024	from shippment to broadcasting (from radio to TV)	
 pappa	NN	Kubhist, SVT	1880-2024	from a head of a household to a parent	
 far	NN	Kubhist, SVT			
@@ -20,16 +21,16 @@ kod	NN	Kubhist, SVT	1880-2024	from social code to cipher to programming code (ha
 mus	NN	Kubhist, SVT, flashback	1880-2024	from rodent, to device to slang for pussy	
 program	NN	Kubhist, SVT	1880-2024	from agenda, to Radio/TV program, to computer code	
 energi	NN	Kubhist, SVT	1880-2024	from electricity to physical energy (strength) to a personal trait, a person with energy	
-racism	NN	Kubhist, SVT, flashback	1880-2024	the development of racism, who was a racist???	
+rasism	NN	Kubhist, SVT, flashback	1880-2024	the development of racism, who was a racist???	
 väst	NN	Kubhist, SVT	1880-2024	from directions to western parts of the world, to global west and global east (politically charged)	
 öst	NN	Kubhist, SVT	1880-2024		
 minne	NN	Kubhist, SVT	1880-2024	from a memory and the facilities with which we remember, to computer memory 	
-skär	NN	Kubhist	1880-1920	From pure to pink	
+skär	JJ	Kubhist	1880-1920	From pure to pink	
 rappare	NN	Kubhist ,SVT	1880-2000	from someone who steals,and an occupation of sorts, to a singer	
 knark	NN	Kubhist, SVT	1880-2000	from a sound (ett knark) to narcotics	
 brud	NN	Kubhist, SVT	1880-2024	from a bride to a chick (girl)	
 panel	NN	Kubhist, SVT	1880-2024	from wood (on a house) to a panel of people	
-dum	NN	Kubhist, SVT	1880-2024	from stupid to evil?	
+dum	JJ	Kubhist, SVT	1880-2024	from stupid to evil?	
 mobil	NN	Kubhist, SVT	1880-2024	from mobile to phone via compound "mobiltelefon"	
 aktör	NN	Kubhist,SVT	1880-2024	from a theatre or movie actor, to an important person AND organization	
 mask	NN	Kubhist,SVT	1880-2024	from a physical animal worm to a computer worm, from a face decoration to face protection	
@@ -41,6 +42,7 @@ fru	NN	Kubhist, SVT	1880-2024	from housewife to wife
 flicka	NN	Kubhist, SVT	1880-2024	from unwed, young female child to female child (also working woman)	
 migration	NN	Kubhist, SVT, Flashback			
 migrant	NN	Kubhist, SVT, Flashback			
+invandring	NN				
 invandrare	NN	Kubhist, SVT, Flashback			
 kvinna	NN	Kubhist, SVT			
 man	NN	Kubhist, SVT			
@@ -53,7 +55,7 @@ kvinnlig	JJ	Kubhist, SVT
 manlig	JJ	Kubhist, SVT			
 pojke	NN	Kubhist, SVT			
 husfru	NN	Kubhist, SVT			
-husmoder	NN	Kubhist, SVT			
+husmor	NN	Kubhist, SVT			
 dam	NN	Kubhist, SVT			
 fruntimmer	NN	Kubhist, SVT			
 mamma	NN	Kubhist, SVT			
@@ -61,7 +63,7 @@ feminin	JJ	Kubhist, SVT
 maskulin	JJ	Kubhist, SVT			
 hona	NN	Kubhist, SVT			
 hanne	NN	Kubhist, SVT			
-suger	VB	Kubhist, Flashback			
+suga	VB	Kubhist, Flashback			
 tråda	VB	SVT, Flashback			
 trolla	VB	SVT, Flashback			
 backa_upp	VB	SVT, Flashback			
@@ -80,6 +82,6 @@ skeda	VB	Kubhist,Flashback
 filma	VB	Kubhist,SVT			
 gemen	JJ	Kubhist,SVT			
 hemsk	JJ	Kubhist,SVT			
-fett	JJ	Kubhist,Flashback		 add extra sense (cool)	
+fett	AB	Kubhist,Flashback		 add extra sense (cool)	
 fruktansvärd	JJ	Kubhist,SVT			
 anorektisk	JJ	Flashback,SVT			
