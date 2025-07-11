@@ -103,8 +103,45 @@ def random_sample_json_files(jsonl_files, output_dir = 'random_sample', min_samp
                 random_sample = df.sample(len(df))
         random_sample.to_json(f"{output_dir}/{basename}", orient='records', lines=True, force_ascii=False)
 
+def remove_files_not_in_words2keep(jsonl_files, words2keep : list[str], output_dir = 'wordsremoved'):
+    out_dir = Path(output_dir)
+    if out_dir.exists() and out_dir.is_dir():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=False)
+    for file_path in jsonl_files:
+        basename = os.path.basename(file_path)
+        word = basename.split('_')[0]
+        if word in words2keep:
+            df = pd.read_json(file_path, lines=True, dtype= {"date": str})
+            df.to_json(f"{output_dir}/{basename}", orient='records', lines=True, force_ascii=False)
+
+def clean_up_words(df, t1_svt, t9_svt, t1_kubhist, t9_kubhist):
+    for _, row in df.iterrows():
+        word = row['word']
+        to_keep = True
+        if 'SVT' and 'Kubhist' in row.corpora:
+            for tp in (t1_svt, t9_svt, t1_kubhist, t9_kubhist):
+                if not glob.glob(f"{tp}/{word}*"):
+                    to_keep = False
+        elif 'SVT' in row.corpora:
+            for tp in (t1_svt, t9_svt):
+                if not glob.glob(f"{tp}/{word}*"):
+                    to_keep = False
+        elif 'Kubhist' in row.corpora:
+            for tp in (t1_kubhist, t9_kubhist):
+                if not glob.glob(f"{tp}/{word}*"):
+                    to_keep = False
+        elif 'flashback' in row.corpora or 'Flashback' in row.corpora or 'parliamentary data' in row.corpora:
+            to_keep = False
+        if not to_keep:
+            for tp in (t1_svt, t9_svt, t1_kubhist, t9_kubhist):
+                for f in glob.glob(f"{tp}/{word}*"):
+                    os.remove(f)
+
 
 if __name__ == '__main__':
+    words2keep = pd.read_csv('words2keep.csv').word.tolist()
+
     # Post sample for SVT
     t1_svt = glob.glob(os.path.join('t1_svt', '*.jsonl'))
     t9_svt = glob.glob(os.path.join('t9_svt', '*.jsonl'))
@@ -128,6 +165,14 @@ if __name__ == '__main__':
     random_sample_json_files(t1_svt_combined_files, output_dir=t1_svt_random_sample_output_dir)
     random_sample_json_files(t9_svt_combined_files, output_dir=t9_svt_random_sample_output_dir)
 
+    t1_svt_random_sample_files = glob.glob(os.path.join(t1_svt_random_sample_output_dir, '*.jsonl'))
+    t9_svt_random_sample_files = glob.glob(os.path.join(t9_svt_random_sample_output_dir, '*.jsonl'))
+    t1_svt_random_sample_files_word2keep_output_dir = 't1_svt_random_samples_words2keep'
+    t9_svt_random_sample_files_word2keep_output_dir = 't9_svt_random_samples_words2keep'
+    remove_files_not_in_words2keep(t1_svt_random_sample_files, words2keep, t1_svt_random_sample_files_word2keep_output_dir)
+    remove_files_not_in_words2keep(t9_svt_random_sample_files, words2keep, t9_svt_random_sample_files_word2keep_output_dir)
+
+
     # Post sample for kubhist
     t1_kubhist = glob.glob(os.path.join('t1_kubhist_new', '*.jsonl'))
     t9_kubhist = glob.glob(os.path.join('t9_kubhist_new', '*.jsonl'))
@@ -150,3 +195,17 @@ if __name__ == '__main__':
     t9_kubhist_random_sample_output_dir = 't9_kubhist_random_samples'
     random_sample_json_files(t1_kubhist_combined_files, output_dir=t1_kubhist_random_sample_output_dir)
     random_sample_json_files(t9_kubhist_combined_files, output_dir=t9_kubhist_random_sample_output_dir)
+
+    t1_kubhist_random_sample_files = glob.glob(os.path.join(t1_kubhist_random_sample_output_dir, '*.jsonl'))
+    t9_kubhist_random_sample_files = glob.glob(os.path.join(t9_kubhist_random_sample_output_dir, '*.jsonl'))
+    t1_kubhist_random_sample_files_word2keep_output_dir = 't1_kubhist_random_samples_words2keep'
+    t9_kubhist_random_sample_files_word2keep_output_dir = 't9_kubhist_random_samples_words2keep'
+    remove_files_not_in_words2keep(t1_kubhist_random_sample_files, words2keep, t1_kubhist_random_sample_files_word2keep_output_dir)
+    remove_files_not_in_words2keep(t9_kubhist_random_sample_files, words2keep, t9_kubhist_random_sample_files_word2keep_output_dir)
+
+    clean_up_words(
+        pd.read_csv('words2keep.csv'),
+        t1_svt_random_sample_files_word2keep_output_dir,
+        t9_svt_random_sample_files_word2keep_output_dir,
+        t1_kubhist_random_sample_files_word2keep_output_dir,
+        t9_kubhist_random_sample_files_word2keep_output_dir)
