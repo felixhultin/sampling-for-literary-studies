@@ -59,7 +59,6 @@ def filter_json_files_on_length(jsonl_files, min_len : int = 20, max_len : int =
             (df['sentence'].str.split().str.len() <= max_len)
         ]
         basename = os.path.basename(file_path)
-        print(f"Filtered {file_path} down from {len(df)} to {len(df_filter)}")
         df_filter.to_json(f"{output_dir}/{basename}", orient='records', lines=True, force_ascii=False)
 
 def combine_json_files_on_word(jsonl_files, output_dir = 'combined'):
@@ -138,74 +137,36 @@ def clean_up_words(df, t1_svt, t9_svt, t1_kubhist, t9_kubhist):
                 for f in glob.glob(f"{tp}/{word}*"):
                     os.remove(f)
 
+def post_sample(input_dir: str, words2keep):
+    input_dir_files = glob.glob(os.path.join(input_dir, '*.jsonl'))
+    output_dir_filtered = input_dir + '_filtered'
+    filter_json_files_on_length(input_dir_files, min_len=15, max_len=100, output_dir = output_dir_filtered )
+    
+    output_dir_filtered_files = glob.glob(os.path.join(output_dir_filtered, '*.jsonl'))
+    output_dir_combined = input_dir + '_combined'
+    combine_json_files_on_word(output_dir_filtered_files, output_dir_combined)
+
+    output_dir_combined_files = glob.glob(os.path.join(output_dir_combined, '*.jsonl'))
+    output_dir_random_samples = input_dir + '_random_samples'
+    random_sample_json_files(output_dir_combined_files, output_dir=output_dir_random_samples)
+
+    output_dir_random_samples_files = glob.glob(os.path.join(output_dir_random_samples, '*.jsonl'))
+    output_dir_words2keep_output_dir = input_dir + '_random_samples_final'
+    remove_files_not_in_words2keep(output_dir_random_samples_files, words2keep, output_dir_words2keep_output_dir)
+
 
 if __name__ == '__main__':
     words2keep = pd.read_csv('words2keep.csv').word.tolist()
-
-    # Post sample for SVT
-    t1_svt = glob.glob(os.path.join('t1_svt', '*.jsonl'))
-    t9_svt = glob.glob(os.path.join('t9_svt', '*.jsonl'))
-
-    t1_svt_filtered_output_dir = 't1_svt_filtered'
-    t9_svt_filtered_output_dir = 't9_svt_filtered'
-    filter_json_files_on_length(t1_svt, min_len=15, max_len=100, output_dir = t1_svt_filtered_output_dir )
-    filter_json_files_on_length(t9_svt, min_len=15, max_len=100, output_dir = t9_svt_filtered_output_dir )
-    
-    t1_svt_filtered_files = glob.glob(os.path.join(t1_svt_filtered_output_dir, '*.jsonl'))
-    t9_svt_filtered_files = glob.glob(os.path.join(t9_svt_filtered_output_dir, '*.jsonl'))
-    t1_svt_combined_output_dir = 't1_svt_combined'
-    t9_svt_combined_output_dir = 't9_svt_combined'
-    combine_json_files_on_word(t1_svt_filtered_files, t1_svt_combined_output_dir)
-    combine_json_files_on_word(t9_svt_filtered_files, t9_svt_combined_output_dir)
-
-    t1_svt_combined_files = glob.glob(os.path.join(t1_svt_combined_output_dir, '*.jsonl'))
-    t9_svt_combined_files = glob.glob(os.path.join(t9_svt_combined_output_dir, '*.jsonl'))
-    t1_svt_random_sample_output_dir = 't1_svt_random_samples'
-    t9_svt_random_sample_output_dir = 't9_svt_random_samples'
-    random_sample_json_files(t1_svt_combined_files, output_dir=t1_svt_random_sample_output_dir)
-    random_sample_json_files(t9_svt_combined_files, output_dir=t9_svt_random_sample_output_dir)
-
-    t1_svt_random_sample_files = glob.glob(os.path.join(t1_svt_random_sample_output_dir, '*.jsonl'))
-    t9_svt_random_sample_files = glob.glob(os.path.join(t9_svt_random_sample_output_dir, '*.jsonl'))
-    t1_svt_random_sample_files_word2keep_output_dir = 't1_svt_random_samples_words2keep'
-    t9_svt_random_sample_files_word2keep_output_dir = 't9_svt_random_samples_words2keep'
-    remove_files_not_in_words2keep(t1_svt_random_sample_files, words2keep, t1_svt_random_sample_files_word2keep_output_dir)
-    remove_files_not_in_words2keep(t9_svt_random_sample_files, words2keep, t9_svt_random_sample_files_word2keep_output_dir)
-
-
-    # Post sample for kubhist
-    t1_kubhist = glob.glob(os.path.join('t1_kubhist_new', '*.jsonl'))
-    t9_kubhist = glob.glob(os.path.join('t9_kubhist_new', '*.jsonl'))
-
-    t1_kubhist_filtered_output_dir = 't1_kubhist_filtered'
-    t9_kubhist_filtered_output_dir = 't9_kubhist_filtered'
-    filter_json_files_on_length(t1_kubhist, min_len=15, max_len=100, output_dir = t1_kubhist_filtered_output_dir )
-    filter_json_files_on_length(t9_kubhist, min_len=15, max_len=100, output_dir = t9_kubhist_filtered_output_dir )
-    
-    t1_kubhist_filtered_files = glob.glob(os.path.join(t1_kubhist_filtered_output_dir, '*.jsonl'))
-    t9_kubhist_filtered_files = glob.glob(os.path.join(t9_kubhist_filtered_output_dir, '*.jsonl'))
-    t1_kubhist_combined_output_dir = 't1_kubhist_combined'
-    t9_kubhist_combined_output_dir = 't9_kubhist_combined'
-    combine_json_files_on_word(t1_kubhist_filtered_files, t1_kubhist_combined_output_dir)
-    combine_json_files_on_word(t9_kubhist_filtered_files, t9_kubhist_combined_output_dir)
-
-    t1_kubhist_combined_files = glob.glob(os.path.join(t1_kubhist_combined_output_dir, '*.jsonl'))
-    t9_kubhist_combined_files = glob.glob(os.path.join(t9_kubhist_combined_output_dir, '*.jsonl'))
-    t1_kubhist_random_sample_output_dir = 't1_kubhist_random_samples'
-    t9_kubhist_random_sample_output_dir = 't9_kubhist_random_samples'
-    random_sample_json_files(t1_kubhist_combined_files, output_dir=t1_kubhist_random_sample_output_dir)
-    random_sample_json_files(t9_kubhist_combined_files, output_dir=t9_kubhist_random_sample_output_dir)
-
-    t1_kubhist_random_sample_files = glob.glob(os.path.join(t1_kubhist_random_sample_output_dir, '*.jsonl'))
-    t9_kubhist_random_sample_files = glob.glob(os.path.join(t9_kubhist_random_sample_output_dir, '*.jsonl'))
-    t1_kubhist_random_sample_files_word2keep_output_dir = 't1_kubhist_random_samples_words2keep'
-    t9_kubhist_random_sample_files_word2keep_output_dir = 't9_kubhist_random_samples_words2keep'
-    remove_files_not_in_words2keep(t1_kubhist_random_sample_files, words2keep, t1_kubhist_random_sample_files_word2keep_output_dir)
-    remove_files_not_in_words2keep(t9_kubhist_random_sample_files, words2keep, t9_kubhist_random_sample_files_word2keep_output_dir)
+    t1_svt_dir, t9_svt_dir, t1_kubhist_dir, t9_kubhist_dir = 't1_svt', 't9_svt', 't1_kubhist', 't9_kubhist'
+    post_sample(t1_svt_dir, words2keep)
+    post_sample(t9_svt_dir, words2keep)
+    post_sample(t1_kubhist_dir, words2keep)
+    post_sample(t9_kubhist_dir, words2keep)
 
     clean_up_words(
         pd.read_csv('words2keep.csv'),
-        t1_svt_random_sample_files_word2keep_output_dir,
-        t9_svt_random_sample_files_word2keep_output_dir,
-        t1_kubhist_random_sample_files_word2keep_output_dir,
-        t9_kubhist_random_sample_files_word2keep_output_dir)
+        t1_svt_dir + '_random_samples_final',
+        t9_svt_dir + '_random_samples_final',
+        t1_kubhist_dir + '_random_samples_final',
+        t9_kubhist_dir + '_random_samples_final'
+    )
