@@ -72,7 +72,7 @@ def combine_json_files_on_word(jsonl_files, output_dir = 'combined'):
     out_dir = Path(output_dir)
     if out_dir.exists() and out_dir.is_dir():
         shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=False) 
+    out_dir.mkdir(parents=True, exist_ok=False)
     for w, file_paths in output_files.items():
         to_combine = []
         for fp in file_paths:
@@ -85,7 +85,7 @@ def combine_json_files_on_word(jsonl_files, output_dir = 'combined'):
         combined.to_json(f"{output_dir}/{w}", orient='records', lines=True, force_ascii=False)
 
 
-def random_sample_json_files(jsonl_files, output_dir = 'random_sample', min_sample_size = 20, max_extra_samples = 20):
+def random_sample_json_files(jsonl_files, output_dir = 'random_sample', min_sample_size = 15, max_extra_samples = 30):
     out_dir = Path(output_dir)
     if out_dir.exists() and out_dir.is_dir():
         shutil.rmtree(out_dir)
@@ -97,9 +97,9 @@ def random_sample_json_files(jsonl_files, output_dir = 'random_sample', min_samp
             continue
         else:
             if len(df) > min_sample_size + max_extra_samples:
-                random_sample = df.sample(min_sample_size + max_extra_samples)
+                random_sample = df.sample(min_sample_size + max_extra_samples, random_state=42)
             else:
-                random_sample = df.sample(len(df))
+                random_sample = df.sample(len(df), random_state=42)
         random_sample.to_json(f"{output_dir}/{basename}", orient='records', lines=True, force_ascii=False)
 
 def remove_files_not_in_words2keep(jsonl_files, words2keep : list[str], output_dir = 'wordsremoved'):
@@ -114,28 +114,35 @@ def remove_files_not_in_words2keep(jsonl_files, words2keep : list[str], output_d
             df = pd.read_json(file_path, lines=True, dtype= {"date": str})
             df.to_json(f"{output_dir}/{basename}", orient='records', lines=True, force_ascii=False)
 
-def clean_up_words(df, t1_svt, t9_svt, t1_kubhist, t9_kubhist):
+
+def remove_word_files_from_timeperiod_dirs(word, *timeperiod_dirs):
+    for tp in timeperiod_dirs:
+        for f in glob.glob(f"{tp}/{word}*"):
+            os.remove(f)
+
+
+def clean_up_words(df, t1_svt, t5_svt, t9_svt, t1_kubhist, t5_kubhist, t9_kubhist):
+    all_corpora = [t1_svt, t5_svt, t9_svt, t1_kubhist, t5_kubhist, t9_kubhist]
     for _, row in df.iterrows():
         word = row['word']
-        to_keep = True
-        if 'SVT' and 'Kubhist' in row.corpora:
-            for tp in (t1_svt, t9_svt, t1_kubhist, t9_kubhist):
-                if not glob.glob(f"{tp}/{word}*"):
-                    to_keep = False
+        if 'SVT' in row.corpora and 'Kubhist' in row.corpora:
+            target_corpora = [t1_svt, t9_svt, t1_kubhist, t9_kubhist]
         elif 'SVT' in row.corpora:
-            for tp in (t1_svt, t9_svt):
-                if not glob.glob(f"{tp}/{word}*"):
-                    to_keep = False
+            target_corpora = [t1_svt, t5_svt, t9_svt]
         elif 'Kubhist' in row.corpora:
-            for tp in (t1_kubhist, t9_kubhist):
-                if not glob.glob(f"{tp}/{word}*"):
-                    to_keep = False
+            target_corpora = [t1_kubhist, t5_kubhist, t9_kubhist]
         elif 'flashback' in row.corpora or 'Flashback' in row.corpora or 'parliamentary data' in row.corpora:
-            to_keep = False
-        if not to_keep:
-            for tp in (t1_svt, t9_svt, t1_kubhist, t9_kubhist):
-                for f in glob.glob(f"{tp}/{word}*"):
-                    os.remove(f)
+            remove_word_files_from_timeperiod_dirs(word, *all_corpora)
+            continue
+        else:
+            raise ValueError("No corpus defined")
+
+        if not all(glob.glob(f"{tp}/{word}*") for tp in target_corpora):
+            remove_word_files_from_timeperiod_dirs(word, *target_corpora)
+
+        non_target_corpora = set(all_corpora) - set(target_corpora)
+        remove_word_files_from_timeperiod_dirs(word, *non_target_corpora)
+
 
 def post_sample(input_dir: str, words2keep):
     input_dir_files = glob.glob(os.path.join(input_dir, '*.jsonl'))
@@ -156,17 +163,23 @@ def post_sample(input_dir: str, words2keep):
 
 
 if __name__ == '__main__':
-    words2keep = pd.read_csv('words2keep.csv').word.tolist()
-    t1_svt_dir, t9_svt_dir, t1_kubhist_dir, t9_kubhist_dir = 't1_svt', 't9_svt', 't1_kubhist', 't9_kubhist'
-    post_sample(t1_svt_dir, words2keep)
-    post_sample(t9_svt_dir, words2keep)
-    post_sample(t1_kubhist_dir, words2keep)
-    post_sample(t9_kubhist_dir, words2keep)
+    words2keep = pd.read_csv('words2keep.tsv', sep='\t')
+    t1_svt_dir, t5_svt_dir, t9_svt_dir, t1_kubhist_dir, t5_kubhist_dir, t9_kubhist_dir = \
+    't1_svt', 't5_svt', 't9_svt', 't1_kubhist', 't5_kubhist', 't9_kubhist'
+    wordlist = words2keep.word.tolist()
+    post_sample(t1_svt_dir, wordlist)
+    post_sample(t5_svt_dir, wordlist)
+    post_sample(t9_svt_dir, wordlist)
+    post_sample(t1_kubhist_dir, wordlist)
+    post_sample(t5_kubhist_dir, wordlist)
+    post_sample(t9_kubhist_dir, wordlist)
 
     clean_up_words(
-        pd.read_csv('words2keep.csv'),
+        words2keep,
         t1_svt_dir + '_random_samples_final',
+        t5_svt_dir + '_random_samples_final',
         t9_svt_dir + '_random_samples_final',
         t1_kubhist_dir + '_random_samples_final',
+        t5_kubhist_dir + '_random_samples_final',
         t9_kubhist_dir + '_random_samples_final'
     )
