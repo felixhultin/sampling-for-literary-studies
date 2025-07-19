@@ -35,10 +35,12 @@ parquet_file = pq.ParquetFile('kubhist2-aftonbladet-1880.parquet')
 nof_rows_read = 0
 target_words, target_pos = zip(*[t.split('_') for t in targets])
 expression = '|'.join(target_words)
+occurences, sentences = [], []
 for i in parquet_file.iter_batches(batch_size=chunksize):
     chunk = i.to_pandas()
-    if not (chunk.iloc[0].date >= start_timestamp and chunk.iloc[0].date <= end_timestamp) and\
-        not (chunk.iloc[-1].date >= start_timestamp and chunk.iloc[0].date <= end_timestamp):
+    if chunk.iloc[0].date >= end_timestamp:
+        break
+    elif chunk.iloc[0].date <= start_timestamp and chunk.iloc[-1].date <= end_timestamp:
         pass
     else:
         chunk_occurences = chunk[
@@ -48,15 +50,26 @@ for i in parquet_file.iter_batches(batch_size=chunksize):
         chunk_occurences = chunk_occurences.explode('lemma')
         chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
         chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
+        chunk_occurences = chunk_occurences[
+            (chunk_occurences['date'] >= start_timestamp) & (chunk_occurences['date'] <= end_timestamp) 
+        ]
         sentence_ids = chunk_occurences.sentence_id.unique()
         chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
-        chunk_sentences = chunk_sentences[
-            (chunk['date'] >= start_timestamp) & (chunk['date'] <= end_timestamp) 
-        ]
+        occurences.append(chunk_occurences)
+        sentences.append(chunk_sentences)
     nof_rows_read += chunksize
     print(f"{nof_rows_read} lines read.")
-    
-    sentence_ids = set
+
+df_occurences = pd.concat(occurences)
+df_sentences = pd.concat(sentences)
+df_sentence_id_sentence = df_sentences\
+    .groupby('sentence_id')\
+    .token\
+    .apply(lambda x:x.str.cat(sep=" "))\
+    .reset_index()\
+    .rename(columns={'token': 'sentence'})
+df_target_usages = df_occurences.merge(df_sentence_id_sentence, on='sentence_id')
+
 
 
 # with pd.read_parquet('kubhist2-aftonbladet-1880.parquet', filters=[('date', '>=', start), ('date', '<=', end)], chunksize=chunksize) as reader:
