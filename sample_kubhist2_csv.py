@@ -68,8 +68,44 @@ df_sentence_id_sentence = df_sentences\
     .apply(lambda x:x.str.cat(sep=" "))\
     .reset_index()\
     .rename(columns={'token': 'sentence'})
+
+def extract_target_usages_pd(df_tokens : pd.DataFrame, targets : list[str]):
+    pass
+
+def extract_target_usages_loop(df_tokens : pd.DataFrame, targets : list[str]):
+    """Loops through a dataframe of tokens for matches of target tokens"""    
+    df_sentences = df_tokens.groupby('sentence_id')
+    for sent in df_sentences:
+        sentence = ""
+        offsets, matches, pos_tags = [], [], []
+        for _, row in df_tokens.iterrow():
+            text = row.text
+            pos = row.text
+            lemmas_string = row.lemma
+            if lemmas_string == '|':
+                if (text, pos) in targets:
+                    start = len(sentence)
+                    end = len(sentence) + len(text)
+                    offsets.append( (start, end) )
+                    matches.append(text)
+                    pos_tags.append(pos)
+            else:
+                lemmas = [l for l in lemmas_string.split('|')]
+                for lemma in lemmas:
+                    if (lemma, pos) in targets:
+                        start = len(sentence)
+                        end = len(sentence) + len(text)
+                        offsets.append( (start, end) )
+                        matches.append(lemma)
+                        pos_tags.append(pos)
+
+
+
+    
 df_target_usages = df_occurences.merge(df_sentence_id_sentence, on='sentence_id')
 
+
+#def get_offsets(target,):
 
 
 # with pd.read_parquet('kubhist2-aftonbladet-1880.parquet', filters=[('date', '>=', start), ('date', '<=', end)], chunksize=chunksize) as reader:
