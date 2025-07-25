@@ -20,7 +20,6 @@ def extract_target_usages(
     expression = '|'.join(target_words)
     occurences, sentence_tokens = [], []
     start_index = 0
-    import pdb; pdb.set_trace()
     for i in parquet_file.iter_batches(batch_size=chunksize):
         chunk = i.to_pandas()
         if chunk.iloc[0].date >= end_timestamp:
