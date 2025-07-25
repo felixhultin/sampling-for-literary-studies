@@ -16,7 +16,7 @@ def timeperiod_in_range(start, end, x, format = "%Y-%m-%d"):
     else:
         return start_timestamp <= x_timestamp or x <= end_timestamp
 
-targets = set(['skär_JJ', 'telefon_NN'])
+targets = set(['skär_JJ', 'telefon_NN', 'fru_NN', 'herre_NN', 'pappa_NN'])
 start = "1880-01-01"
 end = "1883-12-31"
 start_timestamp = pd.Timestamp(start).date()
@@ -35,7 +35,8 @@ parquet_file = pq.ParquetFile('kubhist2-aftonbladet-1880.parquet')
 nof_rows_read = 0
 target_words, target_pos = zip(*[t.split('_') for t in targets])
 expression = '|'.join(target_words)
-occurences, sentences = [], []
+occurences, sentence_tokens = [], []
+start_index = 0
 for i in parquet_file.iter_batches(batch_size=chunksize):
     chunk = i.to_pandas()
     if chunk.iloc[0].date >= end_timestamp:
@@ -43,6 +44,8 @@ for i in parquet_file.iter_batches(batch_size=chunksize):
     elif chunk.iloc[0].date <= start_timestamp and chunk.iloc[-1].date <= end_timestamp:
         pass
     else:
+        chunk.index = range(start_index, start_index + len(chunk))
+        start_index += len(chunk)
         chunk_occurences = chunk[
             (chunk['lemma'].str.contains(expression))
         ]
@@ -56,31 +59,66 @@ for i in parquet_file.iter_batches(batch_size=chunksize):
         sentence_ids = chunk_occurences.sentence_id.unique()
         chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
         occurences.append(chunk_occurences)
-        sentences.append(chunk_sentences)
+        sentence_tokens.append(chunk_sentences)
     nof_rows_read += chunksize
     print(f"{nof_rows_read} lines read.")
 
-df_occurences = pd.concat(occurences)
-df_sentences = pd.concat(sentences)
-df_sentence_id_sentence = df_sentences\
+df_targets = pd.concat(occurences)
+df_tokens = pd.concat(sentence_tokens)
+
+# Compute length of each token
+df_tokens['length'] = df_tokens['token'].str.len()
+
+# Add a helper column for the space after each token (except the last token in sentence)
+df_tokens['space'] = 1  # space after token
+# We will remove the space after the last token in each sentence
+is_last = df_tokens['sentence_id'] != df_tokens['sentence_id'].shift(-1)
+df_tokens.loc[is_last, 'space'] = 0
+
+# Calculate cumulative start position within each sentence
+df_tokens['start'] = \
+    df_tokens.groupby('sentence_id')[['length', 'space']].cumsum()['length'] - \
+    df_tokens['length'] + df_tokens.groupby('sentence_id')['space'].cumsum() - \
+    df_tokens['space']
+
+# End is start + length
+df_tokens['end'] = df_tokens['start'] + df_tokens['length']
+
+# Drop helper columns if needed
+df_tokens = df_tokens.drop(columns=['length', 'space'])
+
+
+df_sentences = df_tokens\
     .groupby('sentence_id')\
     .token\
     .apply(lambda x:x.str.cat(sep=" "))\
     .reset_index()\
-    .rename(columns={'token': 'sentence'})
+    .rename(columns={'token': 'text'})
 
-def extract_target_usages_pd(df_tokens : pd.DataFrame, targets : list[str]):
+df_targets = df_targets.merge(df_tokens[['start', 'end']], left_index=True, right_index=True)
+df_targets = df_targets.merge(df_sentences, on='sentence_id')
+
+
+def extract_target_usages_pd(df_tokens : pd.DataFrame, df_targets : list[str]):
+    targets = set(zip(df_targets['lemma'], df_targets['pos']))
+    df_sentences = df_tokens.groupby('sentence_id')
+
+
     pass
 
-def extract_target_usages_loop(df_tokens : pd.DataFrame, targets : list[str]):
-    """Loops through a dataframe of tokens for matches of target tokens"""    
+def extract_target_usages_loop(df_tokens : pd.DataFrame, df_targets : list[str]):
+    """Loops through a dataframe of tokens for matches of target tokens"""
+    targets = set(zip(df_targets['lemma'], df_targets['pos']))
     df_sentences = df_tokens.groupby('sentence_id')
-    for sent in df_sentences:
+    jsonl = []
+    for sentence_id, df_sent in df_sentences:
         sentence = ""
         offsets, matches, pos_tags = [], [], []
-        for _, row in df_tokens.iterrow():
-            text = row.text
-            pos = row.text
+        for _, row in df_sent.iterrows():
+            text = row.token
+            if type(text) != str:
+                text = '<PARSE_ERROR>'
+            pos = row.pos
             lemmas_string = row.lemma
             if lemmas_string == '|':
                 if (text, pos) in targets:
@@ -98,61 +136,17 @@ def extract_target_usages_loop(df_tokens : pd.DataFrame, targets : list[str]):
                         offsets.append( (start, end) )
                         matches.append(lemma)
                         pos_tags.append(pos)
+            sentence += text + " "
 
-
-
-    
-df_target_usages = df_occurences.merge(df_sentence_id_sentence, on='sentence_id')
-
-
-#def get_offsets(target,):
-
-
-# with pd.read_parquet('kubhist2-aftonbladet-1880.parquet', filters=[('date', '>=', start), ('date', '<=', end)], chunksize=chunksize) as reader:
-#     nof_rows_read = 0
-#     target_words, target_pos = zip(*[t.split('_') for t in targets])
-#     expression = '|'.join(target_words)
-#     for chunk in reader:
-#         chunk_occurences = chunk[
-#             (chunk['lemma'].str.contains(expression))
-#         ]
-#         chunk_occurences.loc[:, 'lemma'] =  chunk_occurences.lemma.str.split('|')
-#         chunk_occurences = chunk_occurences.explode('lemma')
-#         chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
-#         chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
-#         sentence_ids = chunk_occurences.sentence_id.unique()
-#         chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
-#         chunk_sentences = chunk_sentences[
-#             (chunk_sentences['date'].apply(lambda d: timeperiod_in_range(start, end, d)))
-#         ]
-#         nof_rows_read += chunksize
-#         print(f"{nof_rows_read} lines read.")
-        
-#         sentence_ids = set
-#     # Extract sentences from token occurences
-# df_occurences = pd.concat(occurences)
-
-
-# with pd.read_csv('kubhist2-aftonbladet-1880.tsv.gz', sep='\t', parse_dates=['date'], chunksize=chunksize) as reader:
-#     nof_rows_read = 0
-#     target_words, target_pos = zip(*[t.split('_') for t in targets])
-#     expression = '|'.join(target_words)
-#     for chunk in reader:
-#         chunk_occurences = chunk[
-#             (chunk['lemma'].str.contains(expression))
-#         ]
-#         chunk_occurences.loc[:, 'lemma'] =  chunk_occurences.lemma.str.split('|')
-#         chunk_occurences = chunk_occurences.explode('lemma')
-#         chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
-#         chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
-#         sentence_ids = chunk_occurences.sentence_id.unique()
-#         chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
-#         # chunk_sentences = chunk_sentences[
-#         #     (chunk_sentences['date'].apply(lambda d: timeperiod_in_range(start, end, d)))
-#         # ]
-#         nof_rows_read += chunksize
-#         print(f"{nof_rows_read} lines read.")
-        
-#         sentence_ids = set
-#     # Extract sentences from token occurences
-# df_occurences = pd.concat(occurences)
+        sentence = sentence[:-1] # Remove trailing space
+        for off, match, pos_tag in zip(offsets, matches, pos_tags):
+            start, end = off
+            jsonl.append({
+                'idx': sentence_id,
+                'text': sentence,
+                'target': match,
+                'pos_tag': pos_tag,
+                'start': start,
+                'end': end
+            })
+    return pd.DataFrame.from_records(jsonl)
