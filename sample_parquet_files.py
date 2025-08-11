@@ -46,7 +46,6 @@ def extract_target_usages(
             
         print(f"{start_index} lines read.")
     
-    
     df_targets = pd.concat(occurences)
     df_tokens = pd.concat(sentence_tokens)
 
@@ -73,6 +72,16 @@ def extract_target_usages(
     df_targets = df_targets.merge(df_tokens[['start', 'end']], left_index=True, right_index=True)
     df_targets = df_targets.merge(df_sentences, on='sentence_id')
 
+    if write2json:
+        df_targets\
+            .groupby('target')\
+            .apply(
+                lambda g: 
+                    g.to_json(f'{parquet_filepath[:-8]}_{g.name}_target_usages.jsonl',
+                              orient='records', lines=True, force_ascii=False),
+                include_groups=False
+            )
+
     return df_targets
 
 
@@ -81,7 +90,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                     prog='Samples words from corpora',
                     description='Samples sentences given words and corpora')
-    parser.add_argument('-t', '--target', nargs='+') # W/o nargs='+' because of spaces.
+    parser.add_argument('-t', '--target', nargs='+')
     parser.add_argument('-c', '--corpora', nargs='+')
     parser.add_argument('-o', '--output-folder', default="")
     parser.add_argument('-s', '--start')
@@ -90,7 +99,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     corpora = args.corpora
     output_folder = args.output_folder
-    targets = {tuple(w.split("_")) for w in args.target}
     for c in corpora:
         df = extract_target_usages(
             c,
