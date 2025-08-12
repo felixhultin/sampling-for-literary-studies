@@ -61,6 +61,7 @@ def extract_target_usages(
 
     df_tokens['end'] = df_tokens['start'] + df_tokens['length']
     df_tokens = df_tokens.drop(columns=['length', 'space'])
+    df_tokens = df_tokens.astype({'start': 'Int16', 'end': 'Int16'})
 
     df_sentences = df_tokens\
         .groupby('sentence_id')\
