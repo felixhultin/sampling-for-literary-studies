@@ -72,6 +72,7 @@ def extract_target_usages(
 
     df_targets = df_targets.merge(df_tokens[['start', 'end']], left_index=True, right_index=True)
     df_targets = df_targets.merge(df_sentences, on='sentence_id')
+    df_targets.date = df_targets.date.apply(lambda l: datetime.datetime.strftime(l, format="%Y-%m-%d"))
 
     if write2json:
         df_targets\
