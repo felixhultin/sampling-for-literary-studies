@@ -13,8 +13,8 @@ def extract_target_usages(
         chunksize : int = 10 ** 6,
         write2json : bool = True
     ):
-    start_timestamp = pd.Timestamp(start_date).date()
-    end_timestamp = pd.Timestamp(end_date).date()
+    start_date = pd.Timestamp(start_date) if start_date else pd.Timestamp.min
+    end_date = pd.Timestamp(end_date) if end_date else pd.Timestamp.max
     parquet_file = pq.ParquetFile(parquet_filepath)
     target_words, _ = zip(*[t.split('_') for t in targets])
     expression = '|'.join(target_words)
@@ -22,9 +22,10 @@ def extract_target_usages(
     start_index = 0
     for i in parquet_file.iter_batches(batch_size=chunksize):
         chunk = i.to_pandas()
-        if chunk.iloc[0].date >= end_timestamp:
+        chunk.date = pd.to_datetime(chunk.date).dt.tz_localize(None)
+        if chunk.iloc[0].date >= end_date:
             break
-        elif chunk.iloc[0].date <= start_timestamp and chunk.iloc[-1].date <= end_timestamp:
+        elif chunk.iloc[0].date <= start_date and chunk.iloc[-1].date <= end_date:
             pass
         else:
             chunk.index = range(start_index, start_index + len(chunk))
@@ -37,7 +38,7 @@ def extract_target_usages(
             chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
             chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
             chunk_occurences = chunk_occurences[
-                (chunk_occurences['date'] >= start_timestamp) & (chunk_occurences['date'] <= end_timestamp) 
+                (chunk_occurences['date'] >= start_date) & (chunk_occurences['date'] <= end_date) 
             ]
             sentence_ids = chunk_occurences.sentence_id.unique()
             chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
@@ -102,6 +103,7 @@ if __name__ == '__main__':
     corpora = args.corpora
     output_folder = args.output_folder
     for c in corpora:
+        # Storing DataFrame (df) purely for debugging purposes
         df = extract_target_usages(
             c,
             targets=args.target,
