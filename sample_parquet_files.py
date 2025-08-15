@@ -11,7 +11,8 @@ def extract_target_usages(
         start_date: str, 
         end_date: str,
         chunksize : int = 10 ** 6,
-        write2json : bool = True
+        write2json : bool = True,
+        is_chronological: bool = False,
     ):
     start_date = pd.Timestamp(start_date) if start_date else pd.Timestamp.min
     end_date = pd.Timestamp(end_date) if end_date else pd.Timestamp.max
@@ -23,27 +24,29 @@ def extract_target_usages(
     for i in parquet_file.iter_batches(batch_size=chunksize):
         chunk = i.to_pandas()
         chunk.date = pd.to_datetime(chunk.date).dt.tz_localize(None)
-        if chunk.iloc[0].date >= end_date:
-            break
-        elif chunk.iloc[0].date <= start_date and chunk.iloc[-1].date <= end_date:
-            pass
-        else:
-            chunk.index = range(start_index, start_index + len(chunk))
-            start_index += len(chunk)
-            chunk_occurences = chunk[
-                (chunk['lemma'].str.contains(expression))
-            ]
-            chunk_occurences.loc[:, 'lemma'] = chunk_occurences.lemma.str.split('|')
-            chunk_occurences = chunk_occurences.explode('lemma')
-            chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
-            chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
-            chunk_occurences = chunk_occurences[
-                (chunk_occurences['date'] >= start_date) & (chunk_occurences['date'] <= end_date) 
-            ]
-            sentence_ids = chunk_occurences.sentence_id.unique()
-            chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
-            occurences.append(chunk_occurences)
-            sentence_tokens.append(chunk_sentences)
+
+        if is_chronological:
+            if chunk.iloc[0].date >= end_date:
+                break
+            elif chunk.iloc[0].date <= start_date and chunk.iloc[-1].date <= end_date:
+                continue
+
+        chunk.index = range(start_index, start_index + len(chunk))
+        start_index += len(chunk)
+        chunk_occurences = chunk[
+            (chunk['lemma'].str.contains(expression))
+        ]
+        chunk_occurences.loc[:, 'lemma'] = chunk_occurences.lemma.str.split('|')
+        chunk_occurences = chunk_occurences.explode('lemma')
+        chunk_occurences['target'] = chunk_occurences['lemma'] + '_' + chunk_occurences['pos']
+        chunk_occurences = chunk_occurences[chunk_occurences['target'].isin(targets)]
+        chunk_occurences = chunk_occurences[
+            (chunk_occurences['date'] >= start_date) & (chunk_occurences['date'] <= end_date)
+        ]
+        sentence_ids = chunk_occurences.sentence_id.unique()
+        chunk_sentences = chunk[chunk['sentence_id'].isin(sentence_ids)]
+        occurences.append(chunk_occurences)
+        sentence_tokens.append(chunk_sentences)
             
         print(f"{start_index} lines read.")
     
@@ -103,7 +106,7 @@ if __name__ == '__main__':
     corpora = args.corpora
     output_folder = args.output_folder
     for c in corpora:
-        # Storing DataFrame (df) purely for debugging purposes
+        # Storing DataFrame (df) for debugging purposes
         df = extract_target_usages(
             c,
             targets=args.target,
