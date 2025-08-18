@@ -96,8 +96,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                     prog='Samples words from corpora',
                     description='Samples sentences given words and corpora')
-    parser.add_argument('-t', '--target', nargs='+')
-    parser.add_argument('-c', '--corpora', nargs='+')
+    parser.add_argument('-t', '--target', nargs='+', required=True)
+    parser.add_argument('-c', '--corpora', nargs='+', required=True)
     parser.add_argument('-o', '--output-folder', default="")
     parser.add_argument('-s', '--start')
     parser.add_argument('-e', '--end')
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         # Storing DataFrame (df) for debugging purposes
         df = extract_target_usages(
             c,
-            targets=args.target,
+            targets=set(args.target),
             start_date=args.start,
             end_date=args.end
         )
