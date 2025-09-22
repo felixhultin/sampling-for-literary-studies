@@ -9,10 +9,8 @@ from typing import List
 def read_jsonl_files(jsonl_files : List[str]):
     dfs = []
     for filename in jsonl_files:
-        # Read JSONL file
         print(f"Reading {filename}")
         df = pd.read_json(filename, lines=True)
-        # Add filename column
         df["source_file"] = filename
         dfs.append(df)
     return pd.concat(dfs, ignore_index=True)
@@ -22,17 +20,18 @@ def extract_target_usages(df, target_words: List[str], time_span: int):
     df['target'] = df['lemma'] + '_' + df['pos']
     df = df[df.target.isin(set(target_words))]
 
-    # Extract year
     year = df["date"].dt.year
-
-    # Align to 4-year bins starting at 1880
     start_year = min(year)
     df["period_start"] = ((year - start_year) // time_span) * time_span + start_year
     df["period_end"] = df["period_start"] + 3
-
-    # Label as "YYYY-YYYY"
     df["period_label"] = df["period_start"].astype(str) + "-" + df["period_end"].astype(str)
     return df
+
+def write_statistics(df_tu: pd.DataFrame):
+    df_tu = df_tu.groupby(['period_label', 'target']).size().reset_index(name='count')
+    df_tu_pivot = df_tu.pivot(index="target", columns="period_label", values="count")
+    df_tu_pivot.to_csv('timeperiod_stats.tsv', sep='\t')
+    return df_tu_pivot
 
 
 words = {
@@ -79,3 +78,5 @@ if __name__ == '__main__':
 
     df_all = read_jsonl_files(args.input_files)
     df_tu = extract_target_usages(df_all, args.target, args.time_span)
+    write_statistics(df_tu)
+    
