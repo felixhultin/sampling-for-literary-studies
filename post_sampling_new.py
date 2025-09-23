@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import shutil
 import pandas as pd
 
@@ -12,7 +13,7 @@ def read_jsonl_files(jsonl_files : List[str]):
     for filename in jsonl_files:
         print(f"Reading {filename}")
         df = pd.read_json(filename, lines=True)
-        df["source_file"] = filename
+        df["source_file"] = Path(filename).name.split('_')[0]
         dfs.append(df)
     return pd.concat(dfs, ignore_index=True)
 
@@ -25,6 +26,7 @@ def extract_target_usages(df, target_words: List[str], time_span: int):
     df["period_start"] = ((year - start_year) // time_span) * time_span + start_year
     df["period_end"] = df["period_start"] + 3
     df["period_label"] = df["period_start"].astype(str) + "-" + df["period_end"].astype(str)
+    df = df.drop(columns=['period_start', 'period_end'])
     return df
 
 
@@ -34,37 +36,48 @@ def get_statistics(df_tu: pd.DataFrame):
     df_tu_pivot.to_csv('timeperiod_stats.tsv', sep='\t')
     return df_tu_pivot
 
+
+def do_statistics(*dataframes):
+    pass
+
+
 def write_year_target_to_json(df, out_dir : str):
-    out_dir = Path(out_dir)
-    if out_dir.exists() and out_dir.is_dir():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=False)
-    df.groupby(['target', 'period_label']).apply(
-        lambda g: 
-                g.to_json(f'{g.period_label}_{g.target}_target_usages.jsonl',
+    out_dir_path = Path(out_dir)
+    if out_dir_path.exists() and out_dir_path.is_dir():
+        shutil.rmtree(out_dir_path)
+    out_dir_path.mkdir(parents=True, exist_ok=False)
+    df.date.apply(lambda l: datetime.datetime.strftime(l, format="%Y-%m-%d"))
+    grouped = df.groupby(['target', 'period_label'])
+    grouped.apply(
+        lambda g:
+                g.to_json(out_dir + '_'.join(g.name) + '_target_usages.jsonl',
                             orient='records', lines=True, force_ascii=False),
+            include_groups=False
+        )
+    if args.save2excel:
+        grouped.apply(
+        lambda g:
+                g.to_excel(out_dir + '_'.join(g.name) + '_target_usages.xlsx', index=False),
             include_groups=False
         )
 
 
-def postprocess(df_tu, 
-                out_dir : str = 'postprocessing', 
-                save_intermediate: bool = True, 
+def postprocess(df_tu,
+                out_dir : str = 'postprocessing',
+                save_intermediate: bool = True,
                 min_len: int = 20,
-                max_len: int = 100, 
+                max_len: int = 100,
                 random_state : int  = 42
     ):
     df_filtered = df_tu[
         (df_tu['text'].str.split().str.len() > min_len) & \
         (df_tu['text'].str.split().str.len() <= max_len)
     ]
-    df_stats_filtered = get_statistics(df_filtered)
     df_scrambled = df_filtered.sample(frac=1, random_state=random_state)
-
     if save_intermediate:
-        write_year_target_to_json(df_all, out_dir= f'{out_dir}/all/')
-        write_year_target_to_json(df_stats_filtered, out_dir = f'{out_dir}/filtered/')
-    write_year_target_to_json(df_scrambled)
+        write_year_target_to_json(df_tu, out_dir= f'{out_dir}/all/')
+        write_year_target_to_json(df_filtered, out_dir = f'{out_dir}/filtered/')
+    write_year_target_to_json(df_scrambled, out_dir= f'{out_dir}/scrambled/')
 
 
 words = {
@@ -106,8 +119,13 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input-files', nargs='+', required=True)
     parser.add_argument('-o', '--output-folder', default="")
     parser.add_argument('-ts', '--time-span', default=4)
+    parser.add_argument('--save2excel', action='store_true', default=False)
+    parser.add_argument('--do-stats', default=False)
     args = parser.parse_args()
 
     df_all = read_jsonl_files(args.input_files)
     df_tu = extract_target_usages(df_all, args.target, args.time_span)
     postprocess(df_tu)
+
+    if args.do_stats:
+        do_statistics(args.output_folder)
