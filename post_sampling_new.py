@@ -38,7 +38,7 @@ def get_statistics(df_tu: pd.DataFrame):
 
 
 def do_statistics(*dataframes):
-    pass
+    raise NotImplementedError
 
 
 def write_year_target_to_json(df, out_dir : str):
@@ -46,8 +46,8 @@ def write_year_target_to_json(df, out_dir : str):
     if out_dir_path.exists() and out_dir_path.is_dir():
         shutil.rmtree(out_dir_path)
     out_dir_path.mkdir(parents=True, exist_ok=False)
-    df.date.apply(lambda l: datetime.datetime.strftime(l, format="%Y-%m-%d"))
     grouped = df.groupby(['target', 'period_label'])
+    print(f"Writing to: {out_dir}")
     grouped.apply(
         lambda g:
                 g.to_json(out_dir + '_'.join(g.name) + '_target_usages.jsonl',
@@ -64,17 +64,17 @@ def write_year_target_to_json(df, out_dir : str):
 
 def postprocess(df_tu,
                 out_dir : str = 'postprocessing',
-                save_intermediate: bool = True,
                 min_len: int = 20,
                 max_len: int = 100,
                 random_state : int  = 42
     ):
+    df_tu.date = df_tu.date.apply(lambda l: datetime.datetime.strftime(l, format="%Y-%m-%d"))
     df_filtered = df_tu[
         (df_tu['text'].str.split().str.len() > min_len) & \
         (df_tu['text'].str.split().str.len() <= max_len)
     ]
     df_scrambled = df_filtered.sample(frac=1, random_state=random_state)
-    if save_intermediate:
+    if args.saveintermediate:
         write_year_target_to_json(df_tu, out_dir= f'{out_dir}/all/')
         write_year_target_to_json(df_filtered, out_dir = f'{out_dir}/filtered/')
     write_year_target_to_json(df_scrambled, out_dir= f'{out_dir}/scrambled/')
@@ -120,6 +120,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-folder', default="")
     parser.add_argument('-ts', '--time-span', default=4)
     parser.add_argument('--save2excel', action='store_true', default=False)
+    parser.add_argument('--saveintermediate', action='store_true', default=False)
     parser.add_argument('--do-stats', default=False)
     args = parser.parse_args()
 
